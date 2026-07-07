@@ -1,0 +1,78 @@
+# HLCA Project Implementation Plan
+
+## Goal
+Build the **Hybrid Lexicon-CyberBERT Abusive Content Reporting Algorithm (HLCA)** system as described in [HLCA.pdf](file:///c:/RADHEE/HLCA/HLCA.pdf). This system detects abusive content on webpages using a hybrid approach (Lexicon + BERT) and generates legally admissible forensic reports.
+
+## Architecture
+- **Chrome Extension**: Captures real-time text, DOM structure, and screenshots from the user's browser. Sends data to the backend.
+- **Python Backend**:
+    - **Preprocessing**: Homoglyph normalization, lemmatization.
+    - **Lexicon Module**: Calculates Lexical Intensity Score (LIS).
+    - **CyberBERT Module**: Uses a pre-trained BERT model for Contextual Abuse Score (CAS).
+    - **Fusion Module**: Combines scores into Hybrid Confidence Score (HCS).
+    - **Forensics Module**: Generates SHA-256 hashes and PDF/JSON reports.
+
+## Proposed Changes (New Project)
+
+### Directory Structure
+```
+c:\RADHEE\HLCA\
+  ├── backend/
+  │   ├── app.py              # Flask server
+  │   ├── preprocessing.py    # Text normalization
+  │   ├── lexicon.py          # LIS calculation
+  │   ├── model.py            # CyberBERT (HuggingFace) integration
+  │   ├── fusion.py           # HCS calculation
+  │   ├── forensics.py        # Hashing and Report generation
+  │   ├── requirements.txt    # Python dependencies
+  │   └── lexicon_data.txt    # Abusive word list
+  └── extension/
+      ├── manifest.json       # Extension manifest
+      ├── content.js          # DOM/Text extraction
+      ├── background.js       # Screenshot capture
+      ├── popup.html          # UI
+      ├── popup.js            # UI Logic
+      └── styles.css          # UI Styling
+```
+
+### Components Details
+
+#### 1. Backend (`backend/`)
+- **`preprocessing.py`**:
+    - `clean_text(text)`: Lowercase, remove specials.
+    - `normalize_homoglyphs(text)`: Replace chars like `@` -> `a` (using a map).
+    - `lemmatize(text)`: Use `spacy` or `nltk`.
+- **`lexicon.py`**:
+    - Load abusive words with severity weights (default 1.0 or heuristic).
+    - `calculate_LIS(tokens)`: `1/N * Sum(weights)`.
+- **`model.py`**:
+    - Load `unitary/toxic-bert` (as proxy for CyberBERT).
+    - `predict_CAS(text)`: Return probability of toxicity.
+- **`fusion.py`**:
+    - `calculate_HCS(LIS, CAS, alpha=0.5)`: Weighted average.
+- **`forensics.py`**:
+    - `generate_hash(screenshot, dom, metadata)`: SHA-256.
+    - `create_report(...)`: Save JSON/PDF.
+- **`app.py`**:
+    - Endpoint `/analyze`: Receives `{text, url, dom, screenshot}`.
+    - Orchestrates the pipeline.
+
+#### 2. Chrome Extension (`extension/`)
+- **`manifest.json`**: Permissions (`activeTab`, `scripting`, `tabs`, `storage`).
+- **`content.js`**:
+    - Scrape visible text.
+    - Capture serialized DOM (`document.documentElement.outerHTML`).
+- **`background.js`**:
+    - Listener for capture requests.
+    - `chrome.tabs.captureVisibleTab` for screenshot.
+- **`popup.js`**:
+    - "Scan" button.
+    - Display result: Safe/Abusive, Confidence Score, Report Link.
+
+## Verification Plan
+### Automated Tests
+- Helper script `test_api.py` to send specific payloads to the backend and verify LIS/HCS calculations.
+### Manual Verification
+- Load specific abusive text into a webpage and run the extension.
+- Verify "Abusive" detection.
+- Verify Report is generated in `backend/reports/`.
